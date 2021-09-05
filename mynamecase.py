@@ -91,9 +91,7 @@ for div, leagueWrapper in enumerate(leagueWrappers):
 adpath = '/html/body/div[2]/div[5]/div/div[2]/div/div/button'
 ad_close = driver.find_element_by_xpath(adpath)
 ad_close.click()
-# Move browser to activate bottom ad
-#browser_move = driver.find_element_by_tag_name('html')
-#browser_move.send_keys(Keys.END)
+# Move browser to activate second ad
 driver.execute_script('window.scrollTo(0, 100)')
 # Ad block at bottom
 adpath2 = '/html/body/div[2]/div[2]/div[6]/button'
@@ -129,25 +127,30 @@ for leagueWrapper in leagueWrappers:
         matches = ligaPro.find_all(class_='sc-10gv6xe-0 cdEgTT __CommonRowTennis')
         matchCount = len(matches)
         for match in matches:
+            players = match.findAll('div',attrs={'class':'_3OUew'})
+            results = match.findAll('div',attrs={'class':'_27LPx _3e8K6 _1wSdM'})
             #print(result2.prettify())
             #print('===============================')
             # Get players
-            print('Players...')
-            for i, player in enumerate(
-            match.findAll('div',attrs={'class':'_3OUew'})):
+            #print('Players...')
+            for i, player in enumerate(players):
                 if i == 0:
                     p1.append(player.text)
                 elif i == 1:
                     p2.append(player.text)
             # Get game results
-            print('Results...')
-            for i, result in enumerate(
-            match.findAll('div',attrs={'class':'_27LPx _3e8K6 _1wSdM'})):
-                print('match')
-                if i == 0:
-                    result1.append(result.text)
-                elif i == 1:
-                    result2.append(result.text)
+            #print('Results...')
+            if len(results) > 0:
+                for i, result in enumerate(
+                match.findAll('div',attrs={'class':'_27LPx _3e8K6 _1wSdM'})):
+                    #print('match')
+                    if i == 0:
+                        result1.append(int(result.text))
+                    elif i == 1:
+                        result2.append(int(result.text))
+            else:
+                result1.append(0)
+                result2.append(0)
             # Get scores
             #for i, score in enumerate(match.findAll('div',attrs={
 
@@ -158,7 +161,9 @@ for leagueWrapper in leagueWrappers:
 
 # Organize extracted data as data frame
 print('Extracting data...')
-df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2,'RESULT':[result1,result2]})
+#df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2})
+df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2,'RESULT1':result1,'RESULT2':result2})
+print(df)
 # Store data frame in Excel format
 print('Converting data to Excel file...')
 df.to_excel('output.xlsx', sheet_name='Matches', index=False)
