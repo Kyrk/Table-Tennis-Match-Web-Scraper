@@ -20,42 +20,13 @@ from selenium.webdriver.common.keys import Keys
 import selenium
 import pandas as pd
 
-#TODO: Write function for clicking ad and collapse buttons
-def clickButtons(driver, xpath, xpath2):
-    '''Function that clicks button to show all Liga Pro matches as well as
-    close buttons on ads that would otherwise block/intercept the click
-    request.'''
-    #TODO: Get buttons to work I guess lol
-    poppath = '/html/body/div[2]/div[5]/div/div[2]/div/div/button'
-    pop_close = driver.find_element_by_xpath(poppath)
-    pop_close.click()
-
-    adpath = '/html/body/div[2]/div[2]/div[6]/button'
-    ad_close = driver.find_element_by_xpath(adpath)
-
-#TODO: Write function to process data
-def getData(data):
-    '''Function that processes scraped data and stores values into different
-    lists.'''
-    # Lists to store values of collected data
-    p1 = []         # First players of each match
-    p2 = []         # Second players of each match
-    result1 = []    # Game results of player 1
-    result2 = []    # Game results of player 2
-    score1 = []     # Combined score of player 1
-    score2 = []     # Combined score of player 2
-    point_diff = [] # Difference between player's scores
-
-    for a in data.findAll():
-        print('hi')
-
 # Initialize WebDriver
-#chrome_options = Options()
-#chrome_options.add_argument('--disable-notifications')
 driver = webdriver.Chrome(executable_path=r'chromedriver.exe')
-#        options=chrome_options)
 #driver = webdriver.Chrome()
-#driver.create_options()
+
+# Get input for date
+#print('Enter date of matches to retrieve:')
+#date = input()
 
 URL = "https://scores24.live/en/table-tennis/2021-07-16"
 page = requests.get(URL)    # Get response from target page
@@ -65,10 +36,10 @@ driver.get(URL)             # Direct WebDriver to URL
 # Lists to store values of collected data
 p1 = []         # First players of each match
 p2 = []         # Second players of each match
-result1 = []    # Game results of player 1
-result2 = []    # Game results of player 2
-score1 = []     # Combined score of player 1
-score2 = []     # Combined score of player 2
+p1_result = []    # Game results of player 1
+p2_result = []    # Game results of player 2
+p1_scores = []     # Combined score of player 1
+p2_scores = []     # Combined score of player 2
 point_diff = [] # Difference between player's scores
 
 # Create BeautifulSoup object by parsing HTML of page source
@@ -122,47 +93,62 @@ leagueWrappers = newhtml.find_all('div', {'data-test':'leagueWrapper'})
 print('Fetching Liga Pro matches...')
 for leagueWrapper in leagueWrappers:
     if 'Liga Pro' in str(leagueWrapper):
-        #print(result.prettify())
         ligaPro = BeautifulSoup(str(leagueWrapper), 'html.parser')
-        matches = ligaPro.find_all(class_='sc-10gv6xe-0 cdEgTT __CommonRowTennis')
-        matchCount = len(matches)
-        for match in matches:
-            players = match.findAll('div',attrs={'class':'_3OUew'})
-            results = match.findAll('div',attrs={'class':'_27LPx _3e8K6 _1wSdM'})
-            #print(result2.prettify())
-            #print('===============================')
-            # Get players
-            #print('Players...')
-            for i, player in enumerate(players):
-                if i == 0:
-                    p1.append(player.text)
-                elif i == 1:
-                    p2.append(player.text)
-            # Get game results
-            #print('Results...')
-            if len(results) > 0:
-                for i, result in enumerate(
-                match.findAll('div',attrs={'class':'_27LPx _3e8K6 _1wSdM'})):
-                    #print('match')
-                    if i == 0:
-                        result1.append(int(result.text))
-                    elif i == 1:
-                        result2.append(int(result.text))
-            else:
-                result1.append(0)
-                result2.append(0)
-            # Get scores
-            #for i, score in enumerate(match.findAll('div',attrs={
 
-#print(p1)
-#print(p2)
-#print(result1)
-#print(result2)
+# Get list of code blocks containing matches
+matches = ligaPro.find_all(class_='sc-10gv6xe-0 cdEgTT __CommonRowTennis')
+matchCount = len(matches)
+
+# Get match data
+for match in matches:
+    players = match.findAll('div',attrs={'class':'_3OUew'})
+    results = match.findAll('div',attrs={'class':'_27LPx _3e8K6 _1wSdM'})
+    scores = match.findAll('div',attrs={'class':'_3EsfD'})
+    p1_total = 0
+    p2_total = 0
+    side = 1
+    # Players
+    for i, player in enumerate(players):
+        if i == 0:
+            p1.append(player.text)
+        elif i == 1:
+            p2.append(player.text)
+    # Game results
+    if len(results) > 0:
+        for i, result in enumerate(results):
+            #print('match')
+            if i == 0:
+                p1_result.append(int(result.text))
+            elif i == 1:
+                p2_result.append(int(result.text))
+    else:   # Add empty values if game was cancelled
+        p1_result.append(0)
+        p2_result.append(0)
+    # Scores
+    for i, score in enumerate(scores):
+        # Switch sides when at second half of score matches
+        if i > 6:
+            side = 2
+        # Skip empty score blocks
+        if score.text == '':
+            continue
+        # Add points from each game to total score of players
+        if side == 1:
+            p1_total += int(score.text)
+        else:
+            p2_total += int(score.text)
+    # Add totals to list of scores
+    p1_scores.append(p1_total)
+    p2_scores.append(p2_total)
+    # Point Diff
+    point_diff.append(abs(p1_total-p2_total))
 
 # Organize extracted data as data frame
 print('Extracting data...')
 #df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2})
-df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2,'RESULT1':result1,'RESULT2':result2})
+df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2,
+    'P1 RESULT':p1_result,'P2 RESULT':p2_result,
+    'P1 SCORE':p1_scores,'P2 SCORE':p2_scores,'PT DIFF':point_diff})
 print(df)
 # Store data frame in Excel format
 print('Converting data to Excel file...')
