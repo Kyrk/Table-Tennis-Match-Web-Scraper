@@ -3,10 +3,11 @@
 Python script that scrapes all Liga Pro table tennis match results of a
 specified day from a website that aggregates table tennis matches.
 
-External libraries to install:
+External modules to install:
     requests (pip install requests)
     BeautifulSoup (pip install beautifulsoup4)
     selenium (pip install selenium)
+    pandas (pip install pandas)
 
 Running program:
     python mynamecase.py
@@ -17,30 +18,83 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
-import selenium
+from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
+import re
+import sys
+
+def validDate(date):
+    '''Function that returns True if input is in a valid date format.'''
+    dateRegex = re.compile(r'''
+            ([1-2]\d{3})\-          # Year 1000-2999
+            (0[1-9]|1[0-2])\-       # Month 01-09, 10-12
+            (0[1-9]|[1-2]\d|3[0-1]) # Day 01-09, 10-29, 30-31
+            ''', re.VERBOSE)
+    datematch = dateRegex.search(date)
+    # Return False and print proper format if no regex match
+    if datematch == None:
+        print('Invalid format. Usage: YYYY-MM-DD')
+        return False
+    return True
+
+def closeAds(driver):
+    '''Function that clicks and closes ads blocking the Liga pro button.'''
+    # Ad covering page
+    adpath = '/html/body/div[2]/div[5]/div/div[2]/div/div/button'
+    ad_close = driver.find_element_by_xpath(adpath)
+    ad_close.click()
+    # Move browser to expose second ad
+    driver.execute_script('window.scrollTo(0, 100)')
+    # Ad at bottom
+    adpath2 = '/html/body/div[2]/div[2]/div[6]/button'
+    ad_close = driver.find_element_by_xpath(adpath2)
+    ad_close.click()
+
+def clickButton(driver, leagueWrappers):
+    '''Function that finds possible xpaths of the collapse button containing
+    Liga Pro matches and uses them to find and click the button.'''
+    # Determine xpath by finding leagueWrapper containing Liga Pro matches
+    print('Obtaining xpath for show button...')
+    for div, leagueWrapper in enumerate(leagueWrappers):
+        if 'Liga Pro' in str(leagueWrapper):
+            xpath = '''/html/body/div[2]/div[2]/div[4]/div[2]/div/div[2]/
+            div[5]/div[{}]/div[1]/button'''.format(div + 1)
+            xpath2 = '''/html/body/div[2]/div[2]/div[4]/div[2]/div/div[2]/
+            div[5]/div[{}]/div[1]/button'''.format(div + 2)
+    # Locate correct collapse button using xpath
+    try:
+        print('Searching for show button...')
+        show_button = driver.find_element_by_xpath(xpath)
+    except NoSuchElementException:
+        # Try variation of xpath if original doesn't work
+        print('Xpath for show button not accessible. Using alternative xpath...')
+        show_button = driver.find_element_by_xpath(xpath2)
+    # Click button
+    print('Clicking show button for Liga Pro matches...')
+    show_button.click()
 
 # Initialize WebDriver
 driver = webdriver.Chrome(executable_path=r'chromedriver.exe')
 #driver = webdriver.Chrome()
 
-# Get input for date
-#print('Enter date of matches to retrieve:')
-#date = input()
+# Get input for date, exit program if not valid.
+date = input('Enter date (YYYY-MM-DD): ')
+if not validDate(date):
+    sys.exit()
 
-URL = "https://scores24.live/en/table-tennis/2021-07-16"
+#URL = "https://scores24.live/en/table-tennis/2021-07-15"
+URL = "https://scores24.live/en/table-tennis/{}".format(date)
 page = requests.get(URL)    # Get response from target page
-driver.implicitly_wait(5)  # Wait 10 seconds to do stuff so page maybe loads
+driver.implicitly_wait(5)   # Wait 5 seconds to do stuff so page maybe loads
 driver.get(URL)             # Direct WebDriver to URL
 
 # Lists to store values of collected data
 p1 = []         # First players of each match
 p2 = []         # Second players of each match
-p1_result = []    # Game results of player 1
-p2_result = []    # Game results of player 2
-p1_scores = []     # Combined score of player 1
-p2_scores = []     # Combined score of player 2
-point_diff = [] # Difference between player's scores
+p1_result = []  # Game results of player 1
+p2_result = []  # Game results of player 2
+p1_scores = []  # Combined score of player 1
+p2_scores = []  # Combined score of player 2
 
 # Create BeautifulSoup object by parsing HTML of page source
 html = BeautifulSoup(page.content, 'html.parser')
@@ -48,43 +102,18 @@ html = BeautifulSoup(page.content, 'html.parser')
 # Get all instances of leagueWrappers in HTML
 leagueWrappers = html.find_all('div', {'data-test':'leagueWrapper'})
 
-# Determine xpath by finding leagueWrapper containing Liga Pro matches
-print('Obtaining xpath for show button...')
-for div, leagueWrapper in enumerate(leagueWrappers):
-    if 'Liga Pro' in str(leagueWrapper):
-        xpath = '''/html/body/div[2]/div[2]/div[4]/div[2]/div/div[2]/
-        div[5]/div[{}]/div[1]/button'''.format(div + 1)
-        xpath2 = '''/html/body/div[2]/div[2]/div[4]/div[2]/div/div[2]/
-        div[5]/div[{}]/div[1]/button'''.format(div + 2)
+# Close ads
+closeAds(driver)
 
-# Click away popups that prevent show button from being interacted with
-# Ad covering page
-adpath = '/html/body/div[2]/div[5]/div/div[2]/div/div/button'
-ad_close = driver.find_element_by_xpath(adpath)
-ad_close.click()
-# Move browser to activate second ad
-driver.execute_script('window.scrollTo(0, 100)')
-# Ad block at bottom
-adpath2 = '/html/body/div[2]/div[2]/div[6]/button'
-ad_close = driver.find_element_by_xpath(adpath2)
-ad_close.click()
-
-# Locate correct collapse button using xpath
-try:
-    print('Searching for show button...')
-    show_button = driver.find_element_by_xpath(xpath)
-except selenium.common.exceptions.NoSuchElementException:
-    # Try variation of xpath if original doesn't work
-    print('Xpath for show button not accessible. Using alternative xpath...')
-    show_button = driver.find_element_by_xpath(xpath2)
-
-# Click button
-print('Clicking show button for Liga Pro matches...')
-show_button.click()
+# Click collapse button
+clickButton(driver, leagueWrappers)
 
 # Parse HTML of driver-modified page source
 print('Parsing HTML of modified page...')
 newhtml = BeautifulSoup(driver.page_source, 'html.parser')
+
+# Exit webdriver
+driver.quit()
 
 # Get new instances of leagueWrappers
 leagueWrappers = newhtml.find_all('div', {'data-test':'leagueWrapper'})
@@ -140,16 +169,13 @@ for match in matches:
     # Add totals to list of scores
     p1_scores.append(p1_total)
     p2_scores.append(p2_total)
-    # Point Diff
-    point_diff.append(abs(p1_total-p2_total))
 
 # Organize extracted data as data frame
 print('Extracting data...')
-#df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2})
 df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2,
     'P1 RESULT':p1_result,'P2 RESULT':p2_result,
-    'P1 SCORE':p1_scores,'P2 SCORE':p2_scores,'PT DIFF':point_diff})
+    'P1 SCORE':p1_scores,'P2 SCORE':p2_scores})
 print(df)
 # Store data frame in Excel format
 print('Converting data to Excel file...')
-df.to_excel('output.xlsx', sheet_name='Matches', index=False)
+df.to_excel('output{}.xlsx'.format(date), sheet_name='Matches', index=False)
