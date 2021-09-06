@@ -11,8 +11,6 @@ Running program:
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 import re
