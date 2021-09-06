@@ -27,9 +27,8 @@ def validDate(date):
             (0[1-9]|[1-2]\d|3[0-1]) # Day 01-09, 10-29, 30-31
             ''', re.VERBOSE)
     datematch = dateRegex.search(date)
-    # Return False and print proper format if no regex match
+    # Return False if no regex match
     if datematch == None:
-        print('Invalid format. Usage: YYYY-MM-DD')
         return False
     return True
 
@@ -72,12 +71,11 @@ def clickButton(driver, leagueWrappers):
 # Get input for date, exit program if not valid.
 date = input('Enter date (YYYY-MM-DD): ')
 if not validDate(date):
-    sys.exit()
+    sys.exit('Invalid format. Usage: YYYY-MM-DD')
 
 # Initialize WebDriver
 print('Opening Chrome. DO NOT EXIT WINDOW WHILE PROGRAM IS RUNNING.')
-driver = webdriver.Chrome(executable_path=r'chromedriver.exe')
-#driver = webdriver.Chrome()
+driver = webdriver.Chrome()
 
 URL = "https://scores24.live/en/table-tennis/{}".format(date)
 page = requests.get(URL)    # Get response from target page
@@ -126,9 +124,8 @@ matchCount = len(matches)
 
 # Exit program early if no matches are found.
 if matchCount == 0:
-    print('No matches found. '
-            'Either run program again or try a different date.')
-    sys.exit()
+    sys.exit('No matches found. Either run program again or input a '
+            'different date.')
 
 # Get match data
 for match in matches:
