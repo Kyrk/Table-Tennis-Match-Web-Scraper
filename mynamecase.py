@@ -3,14 +3,9 @@
 Python script that scrapes all Liga Pro table tennis match results of a
 specified day from a website that aggregates table tennis matches.
 
-External modules to install:
-    requests (pip install requests)
-    BeautifulSoup (pip install beautifulsoup4)
-    selenium (pip install selenium)
-    pandas (pip install pandas)
-
 Running program:
-    python mynamecase.py
+    chmod +x mynamecase.py
+    ./mynamecase.py
 '''
 
 import requests
@@ -22,6 +17,7 @@ from selenium.common.exceptions import NoSuchElementException
 import pandas as pd
 import re
 import sys
+import os
 
 def validDate(date):
     '''Function that returns True if input is in a valid date format.'''
@@ -73,16 +69,16 @@ def clickButton(driver, leagueWrappers):
     print('Clicking show button for Liga Pro matches...')
     show_button.click()
 
-# Initialize WebDriver
-driver = webdriver.Chrome(executable_path=r'chromedriver.exe')
-#driver = webdriver.Chrome()
-
 # Get input for date, exit program if not valid.
 date = input('Enter date (YYYY-MM-DD): ')
 if not validDate(date):
     sys.exit()
 
-#URL = "https://scores24.live/en/table-tennis/2021-07-15"
+# Initialize WebDriver
+print('Opening Chrome. DO NOT EXIT WINDOW WHILE PROGRAM IS RUNNING.')
+driver = webdriver.Chrome(executable_path=r'chromedriver.exe')
+#driver = webdriver.Chrome()
+
 URL = "https://scores24.live/en/table-tennis/{}".format(date)
 page = requests.get(URL)    # Get response from target page
 driver.implicitly_wait(5)   # Wait 5 seconds to do stuff so page maybe loads
@@ -127,6 +123,12 @@ for leagueWrapper in leagueWrappers:
 # Get list of code blocks containing matches
 matches = ligaPro.find_all(class_='sc-10gv6xe-0 cdEgTT __CommonRowTennis')
 matchCount = len(matches)
+
+# Exit program early if no matches are found.
+if matchCount == 0:
+    print('No matches found. '
+            'Either run program again or try a different date.')
+    sys.exit()
 
 # Get match data
 for match in matches:
@@ -176,6 +178,15 @@ df = pd.DataFrame({'PLAYER 1':p1,'PLAYER 2':p2,
     'P1 RESULT':p1_result,'P2 RESULT':p2_result,
     'P1 SCORE':p1_scores,'P2 SCORE':p2_scores})
 print(df)
+
+# Create directory to store spreadsheets if it doesn't already exists
+pathExists = os.path.exists('Liga-Pro-Matches')
+if not pathExists:
+    os.makedirs('Liga-Pro-Matches')
+
 # Store data frame in Excel format
 print('Converting data to Excel file...')
-df.to_excel('output{}.xlsx'.format(date), sheet_name='Matches', index=False)
+filepath = 'Liga-Pro-Matches/matches{}.xlsx'.format(date)
+df.to_excel(filepath, sheet_name='Matches', index=False)
+print('Compiled {} Liga Pro matches on {} to \'{}\''.format(matchCount, date,
+    filepath))
